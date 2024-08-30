@@ -15,4 +15,3 @@ class DiscordBot:
         self.login_time = int(time.time()) ## The time the bot connected for this session
         self.last_ping = int(time.time()) ## The last time the bot has received a valid request
 
-
