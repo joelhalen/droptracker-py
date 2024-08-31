@@ -1,4 +1,3 @@
-
 import interactions
 import json
 from dotenv import load_dotenv
@@ -15,6 +14,7 @@ from interactions.api.events import GuildJoin, GuildLeft, MessageCreate, Compone
 from web.api import api_blueprint
 from web.front import front
 from commands import UserCommands, ClanCommands, AdminCommands
+from db.models import session  # Import the database session
 
 ## global variables modified throughout operation + accessed elsewhere ##
 total_guilds = 0
