@@ -1,7 +1,9 @@
-from interactions import Extension, slash_command, SlashContext, Embed
+from interactions import Extension, slash_command, slash_option, SlashContext, Embed, OptionType
 import time
 import subprocess
 import platform
+from db.models import User, Group, Guild, Player, Drop, session
+from sqlalchemy.orm import sessionmaker
 
 # Commands for the general user to interact with the bot
 class UserCommands(Extension):
@@ -18,10 +20,11 @@ class UserCommands(Extension):
 
         help_embed.add_field(name="User Commands:",
                              value="" +
-                                   "- `/me` - View your account / stats\n" +
+                                   "- `/me` - View your account / stats\n" + 
+                                   "- `/accounts` - Claim RS accounts that belong to you\n" +
                                    "- `/stats` - View general DropTracker statistics, or search for a player/clan.\n" +
                                    "- `/user-config` - Configure your user-specific settings, such as google sheets & webhooks.\n" +
-                                   "= `/patreon` - View the benefits of contributing to keeping the DropTracker online via Patreon.", inline=False)
+                                   "- `/patreon` - View the benefits of contributing to keeping the DropTracker online via Patreon.", inline=False)
         help_embed.add_field(name="Group Leader Commands:",
                              value="" +
                                    "- `/group` - View relevant config options, member counts, etc." +
@@ -54,19 +57,48 @@ class UserCommands(Extension):
 
         return await ctx.send(embed=help_embed, ephemeral=True)
 
+    @slash_command(name="accounts",
+                   description="View your currently claimed RuneScape character names, if you have any")
+    async def user_accounts_cmd(self, ctx):
+        user = session.query(User).filter_by(discord_id=str(ctx.user.id)).first()
+        if not user:
+            new_user = User(discord_id=str(ctx.user.id), username=str(ctx.user.username))
+            try:
+                session.add(new_user)
+                session.commit()
+                await ctx.send(f"Your Discord account has been successfully registered in the DropTracker database!\n" +
+                               "You must now use `/claim-rsn` in order to claim ownership of your accounts.")
+                return
+            except Exception as e:
+                session.rollback()
+                await ctx.send(f"`You don't have a valid account registered, 
+                               and an error occurred trying to create one. 
+                               Try again later, perhaps.`", ephemeral=True)
+                return
+            finally:
+                session.close()
+        accounts = session.query(Player).filter_by(user_id=user.user_id)
+        account_names = ""
+        if accounts:
+            for account in accounts:
+                account_names += "`" + account.player_name.strip() + "`\n"
+        account_emb = Embed(title="Your Registered Accounts:",
+                            description=f"{account_names}(total: `{len(accounts)}`)")
+        account_emb.add_field(name="",value="To claim another, you can use the `/claim-rsn` command.", inline=False)
+        account_emb.set_footer(text="https://www.droptracker.io/")
+        pass
+
     async def get_external_latency(self):
-        ## Determine our latency to an external host via a simple ping
         host = "amazon.com"
         ping_command = ["ping", "-c", "1", host]
 
         try:
             output = subprocess.check_output(ping_command, stderr=subprocess.STDOUT, universal_newlines=True)
-            # Extract the time from the output
             if "time=" in output:
                 ext_latency_ms = output.split("time=")[-1].split(" ")[0]
                 return ext_latency_ms
         except subprocess.CalledProcessError:
-            return "N/A"  # If ping fails, return N/A
+            return "N/A"  
 
         return "N/A"
                 

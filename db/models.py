@@ -56,19 +56,24 @@ class Player(Base):
     player_name = Column(String(20), index=True)
     user_id = Column(Integer, ForeignKey('users.user_id'))
     log_slots = Column(Integer)
+    total_level = Column(Integer)
+    date_added = Column(DateTime)
+    date_updated = Column(DateTime)
     
     user = relationship("User", back_populates="players")
     drops = relationship("Drop", back_populates="player")
 
 class User(Base):
     """ 
+    :param: discord_id
         Defines a user, which is separate from a 'Player'
         Users refer to a Discord account that has registered in the DropTracker database.
         Thus, a single 'user' object can have ownership of many 'player' objects.
     """
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(20), index=True)
+    discord_id = Column(String(25))
+    username = Column(String(20))
     players = relationship("Player", back_populates="user")
 
 class Group(Base):

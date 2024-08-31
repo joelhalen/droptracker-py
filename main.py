@@ -55,7 +55,7 @@ async def on_startup(event: Startup):
                               activity=interactions.Activity(name=f" /help", type=interactions.ActivityType.WATCHING))
     bot.load_extension("commands")
     total_guilds = len(bot.guilds)
-    print("Loaded commands. Total guilds:", total_guilds)
+
 
 ## Guild Events ##
 
@@ -77,9 +77,10 @@ async def left_guild(event: GuildLeft):
 async def on_message_create(event: MessageCreate):
     if event.message.author.id == bot.user.id or event.message.system_content:
         return
-    if event.message.webhook_id:
-        #print("Message has a webhook ID")
-        pass
+    if event.message.channel.parent_channel:
+        if event.message.webhook_id:
+            #print("Message has a webhook ID")
+            pass
     
 
 ## User Events ##
