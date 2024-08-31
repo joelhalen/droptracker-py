@@ -3,7 +3,6 @@ import time
 import subprocess
 import platform
 from db.models import User, Group, Guild, Player, Drop, session
-from sqlalchemy.orm import sessionmaker
 
 # Commands for the general user to interact with the bot
 class UserCommands(Extension):

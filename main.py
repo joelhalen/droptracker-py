@@ -85,8 +85,6 @@ async def on_message_create(event: MessageCreate):
 
 ## User Events ##
 
-
-# Main async function to run both bot and server
 async def main():
     bot_task = asyncio.create_task(bot.astart(bot_token))
     # Run Quart server with Hypercorn
@@ -96,6 +94,6 @@ async def main():
     )
     await asyncio.gather(bot_task, quart_task)
 
+
 if __name__ == '__main__':
-    # Run the main async function using asyncio
     asyncio.run(main())
