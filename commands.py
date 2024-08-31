@@ -52,12 +52,8 @@ class UserCommands(Extension):
                              "[Join our Discord](https://www.droptracker.io/discord) | " +
                              "[GitHub](https://www.github.io/joelhalen/droptracker-py) | " + 
                              "[Patreon](https://www.patreon.com/droptracker)", inline=False)
-        # Get Discord latency
         int_latency_ms = int(ctx.bot.latency * 1000)
-
-        # Get external latency
         ext_latency_ms = await get_external_latency()
-
         help_embed.add_field(name="Latency",
                              value=f"Discord API: `{int_latency_ms} ms`\n" +
                                    f"External: `{ext_latency_ms} ms`", inline=False)
@@ -101,33 +97,61 @@ class UserCommands(Extension):
     async def claim_rsn_command(self, ctx, rsn: str):
         user = session.query(User).filter_by(discord_id=str(ctx.user.id)).first()
         if not user:
+            discord_id = ctx.user.id
+            username = ctx.user.username
+            user = db.create_user(str(discord_id), str(username))
         player = session.query(Player).filter(Player.player_name.ilike(rsn)).first()
         if not player:
             wom_data = check_user_by_username(rsn)
             if wom_data:
                 player, player_name, player_id = wom_data
-                new_player = Player(wom_id=player_id, player_name=rsn, user_id=)
+                try:
+                    new_player = Player(player_id, rsn, str(user.id))
+                    session.add(new_player)
+                    session.commit()
+                except Exception as e:
+                    print(f"Could not create a new player:", e)
+                    session.rollback()
             else:
                 return await ctx.send(f"Your account was not found in the WiseOldMan database.\n" +
                                      f"You could try to manually update your account on their website by [clicking here](https://www.wiseoldman.net/players/{rsn}), then try again, or wait a bit.")
             
         return await ctx.send(f"This command will be added soon :)", ephemeral=True)
-
-
-                
-        
+                      
     @slash_command(name="me",
                    description="View your DropTracker account / stats, or create an account if you don't already have one.")
     async def me_command(self, ctx):
-        ## TODO -- check database to see if the user's account exists
-        # if user_exists:
-        me_embed = Embed(title="Your Account", description="", color=0x0ff000)
-
+        user = session.query(User).filter(User.discord_id.ilike(str(ctx.user.id))).first()
+        if user:
+            joined_time = format_time_since_update(user.date_updated)
+            time_added = ""
+            ## only display the last update time if it varies from the time added.
+            if user.date_added != user.date_updated:
+                time_added = " (" + user.date_added.strftime("%B %d, %Y") + ")"
+            me_embed = Embed(title=f"DropTracker statistics for <@{ctx.user.id}>:", 
+                             description=f"Tracking since: {joined_time}{time_added}\n" + 
+                             f"- Total accounts: `{len(user.players)}`", 
+                             color=0x0ff000)
+            if user.groups:
+                # If user has more than one group
+                if len(user.groups) > 1:
+                    group_list = ""
+                    for group in user.groups:
+                        group_list += f"- {group.group_name} (`{len(group.users)}` members)\n"
+                    me_embed.add_field(name="Your groups:", value=group_list, inline=False)
+                else:
+                    # Only one group, so show it separately
+                    group = user.groups[0]
+                    me_embed.add_field(name="Your group:", value=f"{group.group_name} - (`{len(group.users)}` members)", inline=False)
+            else:
+                me_embed.add_field(name="You are not part of any groups.",
+                                   value="*you can find groups on [our website](https://www.droptracker.io/)",
+                                   inline=False)
         me_embed.set_author(name="Your Account",
                               url=f"https://www.droptracker.io/profile?discordId={str(ctx.user.id)}",
                               icon_url="https://www.droptracker.io/img/droptracker-small.gif")
         me_embed.set_thumbnail(url="https://www.droptracker.io/img/droptracker-small.gif")
-        me_embed.set_footer(text="View our documentation to learn more about how to interact with the Discord bot.")
+        #me_embed.set_footer(text="View our documentation to learn more about how to interact with the Discord bot.")
         
 
 

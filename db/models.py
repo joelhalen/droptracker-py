@@ -1,11 +1,10 @@
-## Model definitions for database interactions
-
 import pymysql
 pymysql.install_as_MySQLdb()
 
-from sqlalchemy import create_engine, Column, Integer, Boolean, String, ForeignKey, DateTime, Float
+from sqlalchemy import create_engine, Column, Table, Integer, Boolean, String, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from utils.format import get_current_partition
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -15,6 +14,15 @@ Base = declarative_base()
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASS")
 
+
+""" Define association tables """
+user_group_association = Table(
+    'user_group_association', Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.user_id')),
+    Column('group_id', Integer, ForeignKey('groups.group_id'))
+)
+
+
 class Drop(Base):
     __tablename__ = 'drops'
     drop_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -23,9 +31,11 @@ class Drop(Base):
     player_id = Column(Integer, ForeignKey('players.player_id'), index=True)
     group_id = Column(Integer, ForeignKey('groups.group_id'), index=True)
     date_received = Column(DateTime, index=True)
+    npc_name = Column(String(35), index=True)
     date_updated = Column(DateTime)
     value = Column(Integer)
     quantity = Column(Integer)
+    partition = Column(DateTime, default=get_current_partition, index=True)
     
     player = relationship("Player", back_populates="drops")
     group = relationship("Group", back_populates="drops")
@@ -67,30 +77,27 @@ class Player(Base):
     
     user = relationship("User", back_populates="players")
     drops = relationship("Drop", back_populates="player")
+    groups = relationship("Group", back_populates="users")
 
 class User(Base):
-    """ 
-    :param: discord_id
-        Defines a user, which is separate from a 'Player'
-        Users refer to a Discord account that has registered in the DropTracker database.
-        Thus, a single 'user' object can have ownership of many 'player' objects.
-    """
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     discord_id = Column(String(25))
+    date_added = Column(DateTime)
+    date_updated = Column(DateTime)
     username = Column(String(20))
     players = relationship("Player", back_populates="user")
+    groups = relationship("Group", secondary=user_group_association, back_populates="users")
+
 
 class Group(Base):
-    """ 
-        A "Group" is separate from a "Guild". 
-        Groups constitute Guilds that have properly configured the bot
-    """
     __tablename__ = 'groups'
     group_id = Column(Integer, primary_key=True, autoincrement=True)
     group_name = Column(String(30), index=True)
     wom_id = Column(Integer, default=None)
     drops = relationship("Drop", back_populates="group")
+    players = relationship("Player", back_populates="group")
+    users = relationship("User", secondary=user_group_association, back_populates="groups")
 
 class Guild(Base):
     """ 

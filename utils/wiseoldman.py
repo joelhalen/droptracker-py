@@ -7,8 +7,7 @@ import wom  # Assuming you have a `wom` module similar to the JavaScript library
 
 load_dotenv()
 
-# Define the rate limit: 100 requests per 60 seconds
-rate_limit = 100 / 60  # This calculates the rate as 100 requests per 60 seconds
+rate_limit = 100 / 65  # This calculates the rate as 100 requests per 65 seconds
 limiter = Limiter(rate_limit)  # Create a Limiter instance
 
 # Fetch the WOM_API_KEY from environment variables

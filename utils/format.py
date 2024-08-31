@@ -1,9 +1,10 @@
 import time
+from datetime import datetime
 
-def format_time_since_update(date_updated):
+def format_time_since(datetime_object):
     # Convert the DateTime object to a Unix timestamp
-    if date_updated:
-        unix_timestamp = int(date_updated.timestamp())
+    if datetime_object:
+        unix_timestamp = int(datetime_object.timestamp())
     else:
         unix_timestamp = int(time.time())  # Default to current time if date_updated is None
 
@@ -12,3 +13,8 @@ def format_time_since_update(date_updated):
 
 def format_number(): ## return a human readable format, like 106.56K, etc
     pass
+
+
+def get_current_partition():
+    now = datetime.now()
+    return now.year * 100 + now.month

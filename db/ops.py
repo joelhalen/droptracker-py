@@ -2,6 +2,7 @@ from db.models import User, Group, Guild, Player, Drop, session
 from dotenv import load_dotenv
 import os
 import asyncio
+from datetime import datetime
 from utils.redis import RedisClient
 
 load_dotenv()
@@ -70,4 +71,65 @@ class DatabaseOperations:
                             "Try again later, perhaps.`", ephemeral=True)
             return None
 
+    async def assign_rsn(user: User, player: Player):
+        """ 
+        :param: user: User object
+        :param: player: Player object
+            Assigns a 'player' to the specified 'user' object in the database
+            :return: True/False if successful 
+        """
+        try:
+            if not player.wom_id:
+                return
+            if player.user and player.user != user:
+                """ 
+                    Only allow the change if the player isn't already claimed.
+                """
+                return False
+            else:
+                player.user = user
+                session.commit()
+        except Exception as e:
+            session.rollback()
+            return False
+        finally:
+            return True
 
+    async def find_drops_for_group(group_id: int = None, 
+                               group_discord_id: str = None,
+                               partition: int = None):
+        if not group_id and not group_discord_id:
+            return None
+        elif group_discord_id and not group_id:
+            group_id = redis_client.get(f"group:{group_discord_id}:dt_id")
+        if group_id:
+            if partition is None:
+                partition = datetime.now().year * 100 + datetime.now().month
+            
+            all_drops = session.query(Drop.item_name, 
+                                      Drop.item_id, 
+                                      Drop.player,
+                                      Drop.value,
+                                      Drop.quantity,
+                                      Drop.date_received
+                                      ).filter(
+                Drop.group_id == group_id,
+                Drop.partition == partition
+            ).all()
+            
+            return all_drops
+        else:
+            return None
+
+    async def find_drops_for_player(player: Player,
+                                    partition: int = None):
+        if partition is None:
+            partition = datetime.now().year * 100 + datetime.now().month
+        player_drops = session.query(Drop.item_name,
+                                     Drop.item_id,
+                                     Drop.value,
+                                     Drop.quantity,
+                                     Drop.date_received,
+                                     Drop.npc_name).filter(
+                                         Drop.player == player).all()
+        return player_drops
