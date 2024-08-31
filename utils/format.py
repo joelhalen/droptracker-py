@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
 
-def format_time_since(datetime_object):
+def format_time_since_update(datetime_object):
     # Convert the DateTime object to a Unix timestamp
     if datetime_object:
         unix_timestamp = int(datetime_object.timestamp())

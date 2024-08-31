@@ -42,7 +42,7 @@ class Drop(Base):
 
 class CollectionLogEntry(Base):
     """ 
-        Example of another data type we could store in the sql database
+        Example of another data type we will store in the sql database
     """
     __tablename__ = 'collection'
     log_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -98,6 +98,7 @@ class Group(Base):
     drops = relationship("Drop", back_populates="group")
     players = relationship("Player", back_populates="group")
     users = relationship("User", secondary=user_group_association, back_populates="groups")
+
 
 class Guild(Base):
     """ 
