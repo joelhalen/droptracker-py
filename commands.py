@@ -21,13 +21,14 @@ class UserCommands(Extension):
         help_embed.add_field(name="User Commands:",
                              value="" +
                                    "- `/me` - View your account / stats\n" + 
-                                   "- `/accounts` - Claim RS accounts that belong to you\n" +
-                                   "- `/stats` - View general DropTracker statistics, or search for a player/clan.\n" +
                                    "- `/user-config` - Configure your user-specific settings, such as google sheets & webhooks.\n" +
+                                   "- `/accounts` - View which RuneScape accounts are associated with your Discord account.\n" +
+                                   "- `/claim-rsn` - Claim a RuneScape character as one that belongs to you.\n"
+                                   "- `/stats` - View general DropTracker statistics, or search for a player/clan.\n" +
                                    "- `/patreon` - View the benefits of contributing to keeping the DropTracker online via Patreon.", inline=False)
         help_embed.add_field(name="Group Leader Commands:",
                              value="" +
-                                   "- `/group` - View relevant config options, member counts, etc." +
+                                   "- `/group` - View relevant config options, member counts, etc.\n" +
                                    "- `/group-config` - Begin configuring the DropTracker bot for use in a Discord server, with a step-by-step walkthrough.\n" +
                                    "- `/members` - View a listing of the top members of your group in real-time.\n" +
                                    "- `/req-refresh` - Request an instant refresh of the database for your group, if something appears missing", inline=False)
@@ -49,10 +50,10 @@ class UserCommands(Extension):
         int_latency_ms = int(ctx.bot.latency * 1000)
 
         # Get external latency
-        ext_latency_ms = await self.get_external_latency()
+        ext_latency_ms = await get_external_latency()
 
         help_embed.add_field(name="Latency",
-                             value=f"Discord: `{int_latency_ms} ms`\n" +
+                             value=f"Discord API: `{int_latency_ms} ms`\n" +
                                    f"External: `{ext_latency_ms} ms`", inline=False)
 
         return await ctx.send(embed=help_embed, ephemeral=True)
@@ -88,19 +89,7 @@ class UserCommands(Extension):
         account_emb.set_footer(text="https://www.droptracker.io/")
         pass
 
-    async def get_external_latency(self):
-        host = "amazon.com"
-        ping_command = ["ping", "-c", "1", host]
 
-        try:
-            output = subprocess.check_output(ping_command, stderr=subprocess.STDOUT, universal_newlines=True)
-            if "time=" in output:
-                ext_latency_ms = output.split("time=")[-1].split(" ")[0]
-                return ext_latency_ms
-        except subprocess.CalledProcessError:
-            return "N/A"  
-
-        return "N/A"
                 
         
     @slash_command(name="me",
@@ -133,3 +122,19 @@ class AdminCommands(Extension):
     @slash_command()
     async def test(self, ctx: SlashContext):
         await ctx.send("Hello world!")
+
+
+
+async def get_external_latency():
+        host = "amazon.com"
+        ping_command = ["ping", "-c", "1", host]
+
+        try:
+            output = subprocess.check_output(ping_command, stderr=subprocess.STDOUT, universal_newlines=True)
+            if "time=" in output:
+                ext_latency_ms = output.split("time=")[-1].split(" ")[0]
+                return ext_latency_ms
+        except subprocess.CalledProcessError:
+            return "N/A"  
+
+        return "N/A"
