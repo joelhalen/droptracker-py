@@ -77,10 +77,11 @@ async def left_guild(event: GuildLeft):
 async def on_message_create(event: MessageCreate):
     if event.message.author.id == bot.user.id or event.message.system_content:
         return
-    if event.message.channel.parent_channel:
-        if event.message.webhook_id:
-            #print("Message has a webhook ID")
-            pass
+    if event.message.channel:
+        if event.message.channel.parent_id:
+            if event.message.webhook_id:
+                #print("Message has a webhook ID")
+                pass
     
 
 ## User Events ##

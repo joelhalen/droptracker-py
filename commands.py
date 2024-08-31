@@ -3,6 +3,13 @@ import time
 import subprocess
 import platform
 from db.models import User, Group, Guild, Player, Drop, session
+from utils.format import format_time_since_update, format_number
+from utils.wiseoldman import check_user_by_id, check_user_by_username, check_group_by_id
+from utils.redis import RedisClient
+from db.ops import DatabaseOperations
+
+redis_client = RedisClient()
+db = DatabaseOperations()
 
 # Commands for the general user to interact with the bot
 class UserCommands(Extension):
@@ -60,33 +67,51 @@ class UserCommands(Extension):
     @slash_command(name="accounts",
                    description="View your currently claimed RuneScape character names, if you have any")
     async def user_accounts_cmd(self, ctx):
+        print("User accounts command...")
         user = session.query(User).filter_by(discord_id=str(ctx.user.id)).first()
         if not user:
-            new_user = User(discord_id=str(ctx.user.id), username=str(ctx.user.username))
-            try:
-                session.add(new_user)
-                session.commit()
-                await ctx.send(f"Your Discord account has been successfully registered in the DropTracker database!\n" +
-                               "You must now use `/claim-rsn` in order to claim ownership of your accounts.")
+            discord_id = ctx.user.id
+            username = ctx.user.username
+            new_user = db.create_user(str(discord_id), str(username))
+            if new_user:
                 return
-            except Exception as e:
-                session.rollback()
-                await ctx.send(f"`You don't have a valid account registered, 
-                               and an error occurred trying to create one. 
-                               Try again later, perhaps.`", ephemeral=True)
-                return
-            finally:
-                session.close()
+        redis_client.set_discord_id_to_dt_id(discord_id=str(ctx.user.id),
+                                                droptracker_id=str(user.user_id))
         accounts = session.query(Player).filter_by(user_id=user.user_id)
         account_names = ""
+        count = 0
         if accounts:
             for account in accounts:
-                account_names += "`" + account.player_name.strip() + "`\n"
+                count += 1
+                last_updated_unix = format_time_since_update(account.date_updated)
+                account_names += f"<:totallevel:1179971315583684658> {account.total_level}`" + account.player_name.strip() + f"` (id: {account.player_id})\n> Last updated: <t:{last_updated_unix}:R>\n"
         account_emb = Embed(title="Your Registered Accounts:",
-                            description=f"{account_names}(total: `{len(accounts)}`)")
-        account_emb.add_field(name="",value="To claim another, you can use the `/claim-rsn` command.", inline=False)
+                            description=f"{account_names}(total: `{count}`)")
+        # TODO - replace /claim-rsn with an actual clickable command
+        account_emb.add_field(name="/claim-rsn",value="To claim another, you can use the `/claim-rsn` command.", inline=False)
         account_emb.set_footer(text="https://www.droptracker.io/")
-        pass
+        await ctx.send(embed=account_emb, ephemeral=True)
+    
+    @slash_command(name="claim-rsn",
+                    description="Claim ownership of your RuneScape account names in the DropTracker database")
+    @slash_option(name="rsn",
+                  opt_type=OptionType.STRING,
+                  description="Please type the in-game-name of the account you want to claim, **exactly as it appears**!",
+                  required=True)
+    async def claim_rsn_command(self, ctx, rsn: str):
+        user = session.query(User).filter_by(discord_id=str(ctx.user.id)).first()
+        if not user:
+        player = session.query(Player).filter(Player.player_name.ilike(rsn)).first()
+        if not player:
+            wom_data = check_user_by_username(rsn)
+            if wom_data:
+                player, player_name, player_id = wom_data
+                new_player = Player(wom_id=player_id, player_name=rsn, user_id=)
+            else:
+                return await ctx.send(f"Your account was not found in the WiseOldMan database.\n" +
+                                     f"You could try to manually update your account on their website by [clicking here](https://www.wiseoldman.net/players/{rsn}), then try again, or wait a bit.")
+            
+        return await ctx.send(f"This command will be added soon :)", ephemeral=True)
 
 
                 

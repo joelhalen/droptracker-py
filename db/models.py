@@ -3,7 +3,7 @@
 import pymysql
 pymysql.install_as_MySQLdb()
 
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Float
+from sqlalchemy import create_engine, Column, Integer, Boolean, String, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
@@ -47,6 +47,11 @@ class CollectionLogEntry(Base):
 
 class Player(Base):
     """ 
+    :param: wom_id: The player's WiseOldMan ID
+    :param: player_name: The DISPLAY NAME of the player, exactly as it appears
+    :param: user_id: The ID of the associated User object, if one exists
+    :param: log_slots: Stored number of collected log slots
+    :param: total_level: Account total level based on the last update with WOM.
         Defines the player object, which is instantly created any time a unique username
         submits a new drop/etc, and their WiseOldMan user ID doesn't already exist in our database.
     """
@@ -93,11 +98,11 @@ class Guild(Base):
         They are used relationally to help convert a group to a discord guild. 
     """
     __tablename__ = 'guilds'
-    guild_id = Column(String(30))
+    guild_id = Column(String(30), primary_key=True)
+    initialized = Column(Boolean, default=False)
 
 # Setup database connection and create tables
 engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASS}@localhost:3306/data')  
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
-session = None

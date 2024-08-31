@@ -1,5 +1,7 @@
+# Environmental variables
 .env
-# ignore static files like css,js,images, etc.
+
+# static files like css, js, images, etc.
 /static/assets/data/*
 /static/assets/img/*
 /static/assets/js/*
@@ -8,3 +10,11 @@
 /static/assets/fonts/*
 /static/assets/css/*
 /static/assets/plugins/*
+
+# schema migration configuration
+alembic.ini 
+alembic/versions/*
+
+# General project excludes
+*.cpython*
+*.mako
