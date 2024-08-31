@@ -1,1 +1,10 @@
 .env
+# ignore static files like css,js,images, etc.
+/static/assets/data/*
+/static/assets/img/*
+/static/assets/js/*
+/static/assets/scss/*
+/static/assets/webfonts/*
+/static/assets/fonts/*
+/static/assets/css/*
+/static/assets/plugins/*

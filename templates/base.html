@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+	<meta charset="utf-8">
+	<title>
+	
+	{{ page_name }} | DropTracker.io | OSRS Loot Leaderboards, Metrics & Events
+	</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="">
+	<meta name="author" content="">
+    <link rel="icon" href="/img/favicon.png" type="image/x-icon">
+	{% block css %}
+	{% endblock %}
+	<!-- ================== BEGIN core-css ================== -->
+	<link href="{{ url_for('static', filename='assets/css/vendor.min.css') }}" rel="stylesheet">
+	<link href="{{ url_for('static', filename='assets/css/app.min.css') }}" rel="stylesheet">
+	<!-- ================== END core-css ================== -->
+	
+	<!-- ================== BEGIN page-css ================== -->
+	<link href="{{ url_for('static', filename='assets/plugins/jvectormap-next/jquery-jvectormap.css') }}" rel="stylesheet">
+	<!-- ================== END page-css ================== -->
+	
+	<!-- ====== OPEN GRAPH TAGS / TWITTER CARDS =========== -->
+	    <!-- Open Graph tags -->
+		  {% if current_page %}
+			<meta property="og:title" content="{{ page_name }} | DropTracker.io | OSRS Drop Leaderboards & Events" />
+		  {% else %}
+			<meta property="og:title" content="DropTracker.io | OSRS Loot Leaderboards, Metrics & Events" />
+		  {% endif %}
+			<meta property="og:type" content="website" />
+		  {% if page_name == 'profile' and player.avatar_url != '' %}
+			<meta property="og:image" content="{{ player.avatar_url }}" />
+		  {% else %}
+			<meta property="og:image" content="https://www.droptracker.io/img/card-icon.png" />
+		  {% endif %}
+		  {% if current_page != 'settings' %}
+			<meta property="og:url" content="{{ request.url }}" />
+		  {% else %}
+			<meta property="og:url" content="https://www.droptracker.io/" />
+		  {% endif %}
+		  {% block meta %}
+                <meta property="og:type" content="website" />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:site" content="@droptrackerio" />
+                <meta name="twitter:title" content="DropTracker.io | OSRS Drop Leaderboards & Events" />
+                <meta name="twitter:description" content="Track your OSRS drops automatically, compete in elaborate tile-based events and much, much more!" />
+                <meta name="twitter:image" content="https://www.droptracker.io/img/card-icon.png" />
+            {% endblock %}
+</head>
+<body>
+	<!-- BEGIN #app -->
+	{% if current_page != 'docs' %}
+	<div id="app" class="app">
+	{% else %}
+	<div id="app" class="app app-content-full-height">
+	{% endif %}
+	<!-- BEGIN #header -->
+		<div id="header" class="app-header">
+			
+			<!-- BEGIN desktop-toggler -->
+			<div class="desktop-toggler">
+				<button type="button" class="menu-toggler" data-toggle-class="app-sidebar-collapsed" data-dismiss-class="app-sidebar-toggled" data-toggle-target=".app">
+					<span class="bar"></span>
+					<span class="bar"></span>
+					<span class="bar"></span>
+				</button>
+			</div>
+			<!-- BEGIN desktop-toggler -->
+			
+			<!-- BEGIN mobile-toggler -->
+			<div class="mobile-toggler">
+				<button type="button" class="menu-toggler" data-toggle-class="app-sidebar-mobile-toggled" data-toggle-target=".app">
+					<span class="bar"></span>
+					<span class="bar"></span>
+					<span class="bar"></span>
+				</button>
+			</div>
+			<!-- END mobile-toggler -->
+			
+			
+			
+			<!-- BEGIN brand -->
+			<div class="brand">
+				<a href="/" class="brand-logo">
+					<!--<span class="brand-img">
+						<span class="brand-img-text text-theme">D</span>
+					</span>-->
+                    <img src="https://www.droptracker.io/img/droptracker-small.gif" width="40px" height="40px" alt="Logo" />
+					<span class="brand-text">DropTracker.io</span>
+				</a>
+			</div>
+			<!-- END brand -->
+			
+			<!-- BEGIN menu -->
+			<!-- Appears in the 3x3 grid on top nav panel -->
+			<div class="menu">
+				<div class="menu-item dropdown">
+					<a href="#" data-toggle-class="app-header-menu-search-toggled" data-toggle-target=".app" class="menu-link">
+						<div class="menu-icon"><i class="bi bi-search nav-icon"></i></div>
+					</a>
+				</div>
+
+				<div class="menu-item dropdown dropdown-mobile-full">
+				{% if user %}
+					<a href="#" data-bs-toggle="dropdown" data-bs-display="static" class="menu-link">
+
+						<div class="menu-img online">
+							<img src="{{ user.avatar_url }}" alt="Profile" height="60">
+						</div>
+						<div class="menu-text d-sm-block d-none w-170px">{{ user.rsn }}</div>
+					</a>
+					<div class="dropdown-menu dropdown-menu-end me-lg-3 fs-11px mt-1">
+						<a class="dropdown-item d-flex align-items-center" href="#">MY PROFILE <i class="bi bi-person-circle ms-auto text-theme fs-16px my-n1"></i></a>
+						<a class="dropdown-item d-flex align-items-center" href="#">INBOX <i class="bi bi-envelope ms-auto text-theme fs-16px my-n1"></i></a>
+						<a class="dropdown-item d-flex align-items-center" href="#">SETTINGS <i class="bi bi-gear ms-auto text-theme fs-16px my-n1"></i></a>
+						<div class="dropdown-divider"></div>
+						<a class="dropdown-item d-flex align-items-center" href="/logout">LOG OUT <i class="bi bi-toggle-off ms-auto text-theme fs-16px my-n1"></i></a>
+					</div>
+				{% endif %}
+				</div>
+			</div>
+			<!-- END menu -->
+			
+			<!-- BEGIN menu-search -->
+			<form class="menu-search" method="POST" name="header_search_form">
+				<div class="menu-search-container">
+					<div class="menu-search-icon"><i class="bi bi-search"></i></div>
+					<div class="menu-search-input">
+						<input type="text" class="form-control form-control-lg" placeholder="Begin typing to search for a player or a group...">
+					</div>
+					<div class="menu-search-icon">
+						<a href="#" data-toggle-class="app-header-menu-search-toggled" data-toggle-target=".app"><i class="bi bi-x-lg"></i></a>
+					</div>
+				</div>
+			</form>
+			<!-- END menu-search -->
+		</div>
+		<!-- END #header -->
+		
+		<!-- BEGIN #sidebar -->
+		<div id="sidebar" class="app-sidebar">
+			<!-- BEGIN scrollbar -->
+			<div class="app-sidebar-content" data-scrollbar="true" data-height="100%">
+				<!-- BEGIN menu -->
+				<div class="menu">
+					<div class="menu-header">Navigation</div>
+					<div class="menu-item {{ 'active' if current_page == 'home' else '' }}">
+						<a href="/" class="menu-link">
+							<span class="menu-icon"><i class="bi bi-house"></i></span>
+							<span class="menu-text">Home</span>
+						</a>
+					</div>
+					<div class="menu-item has-sub {{ 'open expand' if current_page in ['players', 'clans', 'lootboards'] else '' }}">
+						<a href="#" class="menu-link">
+							<span class="menu-icon"><i class="fas fa-lg fa-fw me-2 fa-list-ol"></i></span>
+							<span class="menu-text">Leaderboards</span>
+							<span class="menu-caret"><b class="caret"></b></span>
+						</a>
+						<div class="menu-submenu">
+							<div class="menu-item  {{ 'active' if current_page == 'players' else '' }}">
+								<a href="/players" class="menu-link">
+									<span class="menu-text">Players</span>
+								</a>
+							</div>
+							<div class="menu-item {{ 'active' if current_page == 'clans' else '' }}">
+								<a href="/clans" class="menu-link">
+									<span class="menu-text">Clans</span>
+								</a>
+							</div>
+						</div>
+					</div>
+					<div class="menu-divider"></div>
+					
+					<div class="menu-item has-sub {{ 'open expand' if current_page in ['docs', 'documentation', 'runelite', 'discord', 'sheets', 'events'] else '' }}">
+    <a href="#" class="menu-link">
+        <span class="menu-icon"><i class="fas fa-lg fa-fw me-2 fa-book"></i></span>
+        <span class="menu-text">Docs</span>
+        <span class="menu-caret"><b class="caret"></b></span>
+    </a>
+    <div class="menu-submenu">
+        <div class="menu-item {{ 'active' if page_name == 'Documentation' else '' }}">
+            <a href="/docs" class="menu-link">
+                <span class="menu-text">Getting Started</span>
+            </a>
+        </div>
+        <!-- TODO: Extra docs pages when written ... -->
+        <!--<div class="menu-item {{ 'active' if current_page == 'runelite' else '' }}">
+            <a href="/docs/runelite" class="menu-link">
+                <span class="menu-text">RuneLite Plugin</span>
+            </a>
+        </div>
+        <div class="menu-item {{ 'active' if current_page == 'discord' else '' }}">
+            <a href="/docs/discord" class="menu-link">
+                <span class="menu-text">Discord Bot</span>
+            </a>
+        </div>
+        <div class="menu-item {{ 'active' if current_page == 'sheets' else '' }}">
+            <a href="/docs/sheets" class="menu-link">
+                <span class="menu-text">Google Sheets</span>
+            </a>
+        </div>
+        <div class="menu-item {{ 'active' if page_name == 'Events Documentation' else '' }}">
+            <a href="/docs/events" class="menu-link">
+                <span class="menu-text">Events</span>
+            </a>
+        </div>-->
+    </div>
+</div>
+					
+						
+					
+					<div class="menu-divider"></div>
+					<div class="menu-header">User Settings</div>
+					{% if not user %}
+					<div class="menu-item {{ 'active' if current_page == 'signin' else '' }}">
+						<a href="/login" class="menu-link">
+							<span class="menu-icon"><i class="bi bi-box-arrow-in-right"></i></span>
+							<span class="menu-text">Sign in</span>
+						</a>
+					</div>
+					{% else %}
+					<div class="menu-item {{ 'active' if current_page == 'profile' else '' }}">
+						<a href="/profile" class="menu-link">
+							<span class="menu-icon"><i class="bi bi-person-bounding-box"></i></span>
+							<span class="menu-text">My Profile</span>
+						</a>
+					</div>
+					<div class="menu-item {{ 'active' if current_page == 'settings' else '' }}">
+						<a href="/config" class="menu-link">
+							<span class="menu-icon"><i class="bi bi-gear"></i></span>
+							<span class="menu-text">Server Configuration</span>
+						</a>
+					</div>
+					
+					<div class="menu-item">
+						<a href="/logout" class="menu-link  {{ 'active' if current_page == 'logout' else '' }}">
+							<span class="menu-icon"><i class="bi bi-box-arrow-left"></i></span>
+							<span class="menu-text">Sign out</span>
+						</a>
+					</div>
+					{% endif %}
+					<div class="menu-item {{ 'active' if page_name == 'Clan Setup' else '' }}">
+						<a href="/invite" target="_blank" class="menu-link">
+							<span class="menu-icon"><i class="fas fa-lg fa-fw me-2 fa-external-link-alt"></i></span>
+							<span class="menu-text">Invite the Bot</span>
+						</a>
+					</div>
+					<!--<div class="menu-item {{ 'active' if page_name == 'Clan Setup' else '' }}">
+						<a href="/docs/clans" class="menu-link">
+							<span class="menu-icon"><i class="bi bi-calendar4"></i></span>
+							<span class="menu-text">Setting up your Clan</span>
+						</a>
+					</div>
+					<div class="menu-item {{ 'active' if current_page == 'Settings' else '' }}">
+						<a href="/docs/discord" class="menu-link">
+							<span class="menu-icon"><i class="bi bi-gear"></i></span>
+							<span class="menu-text">Discord Bot</span>
+						</a>
+					</div>
+					<div class="menu-item">
+						<a href="helper.html" class="menu-link">
+							<span class="menu-icon"><i class="bi bi-gem"></i></span>
+							<span class="menu-text">Helper</span>
+						</a>
+					</div>-->
+				</div>
+				<!-- END menu -->
+				<div class="p-3 px-4 mt-auto">
+					<a href="/discord" class="btn d-block btn-outline-theme" target="_blank">
+						<i class="fa fa-code-branch me-2 ms-n2 opacity-5"></i> Join our Discord
+					</a>
+				</div>
+			</div>
+			<!-- END scrollbar -->
+		</div>
+		<!-- END #sidebar -->
+			
+		<!-- BEGIN mobile-sidebar-backdrop -->
+		<button class="app-sidebar-mobile-backdrop" data-toggle-target=".app" data-toggle-class="app-sidebar-mobile-toggled"></button>
+		<!-- END mobile-sidebar-backdrop -->
+		
+		<!-- BEGIN #content -->
+		<div id="content" class="app-content">
+		
+
+<div class="toasts-container">
+  
+</div>
+
+		
+		{% block content %}
+			
+		{% endblock %}
+		</div>
+		<!-- END #content -->
+		
+		
+		<!-- END theme-panel -->
+		<!-- BEGIN btn-scroll-top -->
+		<a href="#" data-toggle="scroll-to-top" class="btn-scroll-top fade"><i class="fa fa-arrow-up"></i></a>
+		<!-- END btn-scroll-top -->
+	</div>
+	<!-- END #app -->
+	
+	<!-- ================== BEGIN core-js ================== -->
+    <script src="{{ url_for('static', filename='assets/js/vendor.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/app.min.js') }}"></script>
+	<!-- ================== END core-js ================== -->
+	
+	<!-- ================== BEGIN page-js ================== -->
+	{% block js %}
+	{% endblock %}
+    <script src="{{ url_for('static', filename='assets/plugins/jvectormap-next/jquery-jvectormap.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/plugins/jvectormap-content/world-mill.js') }}"></script>
+    <!-- ApexCharts import--not used
+     <script src="{{ url_for('static', filename='assets/plugins/apexcharts/dist/apexcharts.min.js') }}"></script> -->
+    <script src="{{ url_for('static', filename='assets/js/demo/dashboard.demo.js') }}"></script>
+	
+</body>
+</html>
