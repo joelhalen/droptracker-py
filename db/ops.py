@@ -60,8 +60,6 @@ class DatabaseOperations:
             if ctx:
                 await ctx.send(f"Your Discord account has been successfully registered in the DropTracker database!\n" +
                                 "You must now use `/claim-rsn` in order to claim ownership of your accounts.")
-            redis_client.set_discord_id_to_dt_id(discord_id=str(ctx.user.id),
-                                                droptracker_id=str(new_user.user_id))
             return new_user
         except Exception as e:
             session.rollback()
@@ -94,26 +92,37 @@ class DatabaseOperations:
             return False
         finally:
             return True
+        
+    async def find_all_drops():
+        partition = datetime.now().year * 100 + datetime.now().month
+        all_drops = session.query(Drop.item_name, 
+                                    Drop.item_id, 
+                                    Drop.player,
+                                    Drop.value,
+                                    Drop.quantity,
+                                    Drop.date_added
+                                    ).filter(
+            Drop.partition == partition
+        ).all()
+        return all_drops
 
     async def find_drops_for_group(group_id: int = None, 
                                group_discord_id: str = None,
                                partition: int = None):
         if not group_id and not group_discord_id:
             return None
-        elif group_discord_id and not group_id:
-            group_id = redis_client.get(f"group:{group_discord_id}:dt_id")
         if group_id:
             if partition is None:
                 partition = datetime.now().year * 100 + datetime.now().month
-            
+            group = session.query(Group).filter(Group.group_id == group_id).first()
             all_drops = session.query(Drop.item_name, 
                                       Drop.item_id, 
                                       Drop.player,
                                       Drop.value,
                                       Drop.quantity,
-                                      Drop.date_received
+                                      Drop.date_added
                                       ).filter(
-                Drop.group_id == group_id,
+                Drop.group == group,
                 Drop.partition == partition
             ).all()
             
@@ -129,7 +138,8 @@ class DatabaseOperations:
                                      Drop.item_id,
                                      Drop.value,
                                      Drop.quantity,
-                                     Drop.date_received,
+                                     Drop.date_added,
                                      Drop.npc_name).filter(
                                          Drop.player == player).all()
         return player_drops
+    

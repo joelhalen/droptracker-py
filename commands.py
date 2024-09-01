@@ -1,4 +1,5 @@
-from interactions import Extension, slash_command, slash_option, SlashContext, Embed, OptionType
+from interactions import check, Extension, slash_command, slash_option, SlashContext, Embed, OptionType
+import interactions
 import time
 import subprocess
 import platform
@@ -7,6 +8,7 @@ from utils.format import format_time_since_update, format_number
 from utils.wiseoldman import check_user_by_id, check_user_by_username, check_group_by_id
 from utils.redis import RedisClient
 from db.ops import DatabaseOperations
+
 
 redis_client = RedisClient()
 db = DatabaseOperations()
@@ -71,8 +73,6 @@ class UserCommands(Extension):
             new_user = db.create_user(str(discord_id), str(username))
             if new_user:
                 return
-        redis_client.set_discord_id_to_dt_id(discord_id=str(ctx.user.id),
-                                                droptracker_id=str(user.user_id))
         accounts = session.query(Player).filter_by(user_id=user.user_id)
         account_names = ""
         count = 0
@@ -168,8 +168,9 @@ class ClanCommands(Extension):
 # meant to be used by admins in the droptracker.io discord
 class AdminCommands(Extension):
     @slash_command()
-    async def test(self, ctx: SlashContext):
-        await ctx.send("Hello world!")
+    @check(interactions.is_owner())
+    async def visualize_db(self, ctx: SlashContext):
+        pass
 
 
 

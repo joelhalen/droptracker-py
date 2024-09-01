@@ -1,6 +1,8 @@
 # redis.py
 import redis
 from typing import Optional
+from utils.format import normalize_npc_name
+from datetime import datetime
 
 ## Singleton RedisClient class
 class RedisClient:
@@ -21,24 +23,50 @@ class RedisClient:
         except redis.RedisError as e:
             print(f"Error setting key '{key}': {e}")
 
-    def set_discord_id_to_dt_id(self, discord_id: str, droptracker_id: str) -> None:
+    def get_pid_drops(self, 
+                  player_id: int, 
+                  npc_name: str = None, 
+                  partition: int = datetime.now().year * 100 + datetime.now().month) -> Optional[str]:
+        """ 
+            Retrieves drop totals for a player, optionally filtered by NPC and partition.
+            A partition of 1 refers to all-time drops (patreon feature).
         """
-        :param: discord_id: The user's Discord ID (string formatted)
-        :param: droptracker_id: The user's DropTracker UID (string formatted)
-            Store an association between a discord id and a DropTracker unique user ID
-        """
-        try:
-            self.client.set(f"uid_disc_{discord_id}", f"{droptracker_id}")
-        except redis.RedisError as e:
-            print("Error setting discord ID relation:", e)
-
-    def find_dt_id_from_discord_id(self, discord_id: any) -> None:
-        key = f"uid_disc_{discord_id}"
+        # Normalize the NPC name, defaulting to "all" if not provided
+        if npc_name:
+            npc_name = normalize_npc_name(npc_name)
+        else:
+            npc_name = "all"
+        # Determine the key based on the partition
+        if partition == 1:
+            key = f"pid_drops_at_{player_id}_{npc_name}"
+        else:
+            key = f"pid_drops_mo_{player_id}_{npc_name}_{partition}"
         try:
             value = self.client.get(key)
             return value.decode('utf-8') if value else None
         except redis.RedisError as e:
-            print(f"Error getting UID from key '{key}':", e)
+            print(f"Error getting key '{key}': {e}")
+            return None
+        
+    def set_pid_drops(self, 
+                      player_id: int, 
+                      total_value: int,
+                      npc_name: str = None, 
+                      partition: int = datetime.now().year * 100 + datetime.now().month):
+        """ A partition of 1 refers to all-time drops (patreon feature) """
+        if npc_name:
+            npc_name = normalize_npc_name(npc_name)
+        else:
+            npc_name = "all"
+        if partition == 1:
+            key = f"pid_drops_at_{player_id}_{npc_name}"
+        else:
+            key = f"pid_drops_mo_{player_id}_{npc_name}_{partition}"
+        try:
+            self.client.set(key, total_value)
+        except redis.RedisError as e:
+            print(f"Error setting key '{key}': {e}")
+            
 
     def get(self, key: str) -> Optional[str]:
         try:

@@ -18,3 +18,6 @@ def format_number(): ## return a human readable format, like 106.56K, etc
 def get_current_partition():
     now = datetime.now()
     return now.year * 100 + now.month
+
+def normalize_npc_name(npc_name: str):
+    return npc_name.replace(" ", "_").strip()
