@@ -93,20 +93,30 @@ class DatabaseOperations:
         finally:
             return True
         
-    async def find_all_drops():
-        partition = datetime.now().year * 100 + datetime.now().month
+    async def find_all_drops(self):
+        """ 
+            Used for the global server's lootboard generation & only does this month's partition
+        """
+        partition = datetime.now().year * 100 + (datetime.now().month - 1)
         all_drops = session.query(Drop.item_name, 
                                     Drop.item_id, 
                                     Drop.player,
                                     Drop.value,
                                     Drop.quantity,
-                                    Drop.date_added
+                                    Drop.date_added,
+                                    Drop.group_id
                                     ).filter(
             Drop.partition == partition
+        ).join(
+            Player, Drop.player_id == Player.player_id
         ).all()
+        
+        
+        print("All drops:", all_drops)
         return all_drops
 
-    async def find_drops_for_group(group_id: int = None, 
+    async def find_drops_for_group(self,
+                                   group_id: int = None, 
                                group_discord_id: str = None,
                                partition: int = None):
         if not group_id and not group_discord_id:

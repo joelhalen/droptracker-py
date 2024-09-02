@@ -14,7 +14,7 @@ from db.models import Base  # Import Base using an absolute path
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-
+print("Alembic connection string:", config.get_main_option("sqlalchemy.url"))
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:

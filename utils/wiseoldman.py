@@ -3,7 +3,7 @@ import asyncio
 import httpx
 from asynciolimiter import Limiter
 from dotenv import load_dotenv
-import wom  # Assuming you have a `wom` module similar to the JavaScript library
+import wom
 
 load_dotenv()
 
@@ -23,21 +23,26 @@ async def check_user_by_username(username: str):
     """ Check a user in the WiseOldMan database, returning their "player" object,
         their WOM ID, and their displayName.
     """
+    # TODO -- only grab necessary info and parse it before returning the full player obj?
+
     await client.start()  # Initialize the client (if required by the `wom` library)
 
-    async with limiter:  # Ensure rate limiting
-        try:
-            result = await client.players.get_details(username=username)
-            if result.is_ok:
-                player = result.unwrap()
-                player_id = player.player.id
-                player_name = player.player.display_name
-                return player, player_name, player_id
-            else:
-                # Handle the case where the request failed
-                return None, None, None
-        finally:
-            await client.close()
+    # Manually acquire a permit from the limiter
+    await limiter.wait()
+    try:
+        result = await client.players.get_details(username=username)
+        if result.is_ok:
+            player = result.unwrap()
+            player_id = player.id
+            player_name = player.username
+            ## Return string types to ensure proper data storage in sql
+            return player, str(player_name), str(player_id)
+        else:
+            # Handle the case where the request failed
+            return None, None, None
+    finally:
+        await client.close()
+
 
 async def check_user_by_id(uid: int):
     """ Check a user in the WiseOldMan database, returning their "player" object,
@@ -45,19 +50,20 @@ async def check_user_by_id(uid: int):
     """
     await client.start()  # Initialize the client (if required by the `wom` library)
 
-    async with limiter:  # Ensure rate limiting
-        try:
-            result = await client.players.get_details(id=uid)
-            if result.is_ok:
-                player = result.unwrap()
-                player_id = player.player.id
-                player_name = player.player.display_name
-                return player, player_name, player_id
-            else:
-                # Handle the case where the request failed
-                return None, None, None
-        finally:
-            await client.close()
+    await limiter.wait()
+
+    try:
+        result = await client.players.get_details(id=uid)
+        if result.is_ok:
+            player = result.unwrap()
+            player_id = player.player.id
+            player_name = player.player.display_name
+            return player, str(player_name), str(player_id)
+        else:
+            # Handle the case where the request failed
+            return None, None, None
+    finally:
+        await client.close()
 
 async def check_group_by_id(wom_group_id: int):
     """ Searches for a group on WiseOldMan by a passed group ID 
@@ -65,16 +71,16 @@ async def check_group_by_id(wom_group_id: int):
     """
     wom_id = str(wom_group_id)
     await client.start()
-    async with limiter:
-        try:
-            result = await client.groups.get_details(id=wom_id)
-            if result.is_ok:
-                details = result.unwrap()
-                members = details.memberships
-                member_count = details.group.member_count
-                group_name = details.group.name
-                return group_name, member_count, members
-            else:
-                return None, None, None
-        finally:
-            await client.close()
+    await limiter.wait()
+    try:
+        result = await client.groups.get_details(id=wom_id)
+        if result.is_ok:
+            details = result.unwrap()
+            members = details.memberships
+            member_count = details.group.member_count
+            group_name = details.group.name
+            return group_name, member_count, members
+        else:
+            return None, None, None
+    finally:
+        await client.close()

@@ -4,7 +4,7 @@ pymysql.install_as_MySQLdb()
 from sqlalchemy import create_engine, Column, Table, Integer, Boolean, String, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext import func
+from sqlalchemy import func
 from utils.format import get_current_partition
 from dotenv import load_dotenv
 import os
@@ -29,8 +29,8 @@ user_group_association = Table(
 class Drop(Base):
     __tablename__ = 'drops'
     drop_id = Column(Integer, primary_key=True, autoincrement=True)
-    item_name = Column(String(35), index=True)
-    item_id = Column(Integer, index=True)
+    item_name = Column(String(35))
+    item_id = Column(Integer)
     player_id = Column(Integer, ForeignKey('players.player_id'), index=True)
     group_id = Column(Integer, ForeignKey('groups.group_id'), index=True, nullable=True)
     date_added = Column(DateTime, index=True)
@@ -38,7 +38,7 @@ class Drop(Base):
     date_updated = Column(DateTime, onupdate=func.now())
     value = Column(Integer)
     quantity = Column(Integer)
-    partition = Column(DateTime, default=get_current_partition, index=True)
+    partition = Column(Integer, default=get_current_partition, index=True)
     
     player = relationship("Player", back_populates="drops")
     group = relationship("Group", back_populates="drops")
@@ -56,7 +56,32 @@ class CollectionLogEntry(Base):
     reported_slots = Column(Integer)
     date_added = Column(DateTime, index=True)
     date_updated = Column(DateTime, onupdate=func.now())
-
+"""
+    Redis defs:
+    -- Note: Stored without the {} brackets, ofc.
+    - Player drop keys:
+        Monthly:
+            All:
+                pid_drops_mo_{pid}_all_{partition}
+            Specific NPC:
+                pid_drops_mo_{pid}_{npc_name}_{partition}
+        All-time (patreon):
+            All:
+                pid_drops_at_{pid}_all
+            Specific NPC:
+                pid_drops_at_{pid}_{npc_name}
+    - Group drop keys:
+        Monthly:
+            All:
+                gid_drops_mo_{gid}_all_{partition}
+            Specific NPC:
+                gid_drops_mo_{gid}_{npc_name}_{partition}
+        All-time (patreon):
+            All:
+                gid_drops_at_{pid}_all
+            Specific NPC:
+                gid_drops_at_{pid}_{npc_name}
+"""
 class Player(Base):
     """ 
     :param: wom_id: The player's WiseOldMan ID
@@ -81,6 +106,14 @@ class Player(Base):
     drops = relationship("Drop", back_populates="player")
     groups = relationship("Group", secondary=user_group_association, back_populates="players")
 
+    def __init__(self, wom_id, player_name, user_id=None, user=None, log_slots=0, total_level=0):
+        self.wom_id = wom_id
+        self.player_name = player_name
+        self.user_id = user_id
+        self.user = user
+        self.log_slots = log_slots
+        self.total_level = total_level
+
 class User(Base):
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -88,8 +121,9 @@ class User(Base):
     date_added = Column(DateTime)
     date_updated = Column(DateTime, onupdate=func.now())
     username = Column(String(20))
+    patreon = Column(Boolean, default=False)
     players = relationship("Player", back_populates="user")
-    groups = relationship("Group", secondary=user_group_association, back_populates="users")
+    groups = relationship("Group", secondary=user_group_association, back_populates="users", overlaps="groups")
 
 
 class Group(Base):
@@ -99,10 +133,23 @@ class Group(Base):
     date_added = Column(DateTime)
     date_updated = Column(DateTime, onupdate=func.now())
     wom_id = Column(Integer, default=None)
+    guild_id = Column(Integer, default=None, nullable=True)
+    
+    configurations = relationship("GroupConfiguration", back_populates="group")
     drops = relationship("Drop", back_populates="group")
-    players = relationship("Player", secondary=user_group_association, back_populates="groups")
-    users = relationship("User", secondary=user_group_association, back_populates="groups")
+    players = relationship("Player", secondary=user_group_association, back_populates="groups", overlaps="groups")
+    users = relationship("User", secondary=user_group_association, back_populates="groups", overlaps="groups,players")
 
+class GroupConfiguration(Base):
+    __tablename__ = 'group_configurations'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(Integer, ForeignKey('groups.group_id'), nullable=False)
+    config_key = Column(String(20), nullable=False)
+    config_value = Column(String(255), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    
+    group = relationship("Group", back_populates="configurations")
 
 class Guild(Base):
     """ 

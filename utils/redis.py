@@ -66,7 +66,54 @@ class RedisClient:
             self.client.set(key, total_value)
         except redis.RedisError as e:
             print(f"Error setting key '{key}': {e}")
-            
+
+    def get_gid_drops(self, 
+                  group_id: int, 
+                  npc_name: str = None, 
+                  partition: int = datetime.now().year * 100 + datetime.now().month) -> Optional[str]:
+        """ 
+            Retrieves drop totals for a group, optionally filtered by NPC and partition.
+            A partition of 1 refers to all-time drops (patreon feature).
+        """
+        # Normalize the NPC name, defaulting to "all" if not provided
+        if npc_name:
+            npc_name = normalize_npc_name(npc_name)
+        else:
+            npc_name = "all"
+        # Determine the key based on the partition
+        if partition == 1:
+            key = f"gid_drops_at_{group_id}_{npc_name}"
+        else:
+            key = f"gid_drops_mo_{group_id}_{npc_name}_{partition}"
+        try:
+            value = self.client.get(key)
+            return value.decode('utf-8') if value else None
+        except redis.RedisError as e:
+            print(f"Error getting key '{key}': {e}")
+            return None
+
+    def set_gid_drops(self, 
+                  group_id: int, 
+                  total_value: int,
+                  npc_name: str = None, 
+                  partition: int = datetime.now().year * 100 + datetime.now().month):
+        """ 
+            A partition of 1 refers to all-time drops (patreon feature)
+        """
+        # Normalize the NPC name, defaulting to "all" if not provided
+        if npc_name:
+            npc_name = normalize_npc_name(npc_name)
+        else:
+            npc_name = "all"
+        # Determine the key based on the partition
+        if partition == 1:
+            key = f"gid_drops_at_{group_id}_{npc_name}"
+        else:
+            key = f"gid_drops_mo_{group_id}_{npc_name}_{partition}"
+        try:
+            self.client.set(key, total_value)
+        except redis.RedisError as e:
+            print(f"Error setting key '{key}': {e}")
 
     def get(self, key: str) -> Optional[str]:
         try:

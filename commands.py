@@ -4,7 +4,7 @@ import time
 import subprocess
 import platform
 from db.models import User, Group, Guild, Player, Drop, session
-from utils.format import format_time_since_update, format_number
+from utils.format import format_time_since_update, format_number, get_command_id
 from utils.wiseoldman import check_user_by_id, check_user_by_username, check_group_by_id
 from utils.redis import RedisClient
 from db.ops import DatabaseOperations
@@ -28,18 +28,18 @@ class UserCommands(Extension):
 
         help_embed.add_field(name="User Commands:",
                              value="" +
-                                   "- `/me` - View your account / stats\n" + 
-                                   "- `/user-config` - Configure your user-specific settings, such as google sheets & webhooks.\n" +
-                                   "- `/accounts` - View which RuneScape accounts are associated with your Discord account.\n" +
-                                   "- `/claim-rsn` - Claim a RuneScape character as one that belongs to you.\n"
-                                   "- `/stats` - View general DropTracker statistics, or search for a player/clan.\n" +
-                                   "- `/patreon` - View the benefits of contributing to keeping the DropTracker online via Patreon.", inline=False)
+                                   f"- </me:{await get_command_id(self.bot, 'me')}> - View your account / stats\n" + 
+                                   f"- </user-config:{await get_command_id(self.bot, 'user-config')}> - Configure your user-specific settings, such as google sheets & webhooks.\n" +
+                                   f"- </accounts:{await get_command_id(self.bot, 'accounts')}> - View which RuneScape accounts are associated with your Discord account.\n" +
+                                   f"- </claim-rsn:{await get_command_id(self.bot, 'claim-rsn')}> - Claim a RuneScape character as one that belongs to you.\n"
+                                   f"- </stats:{await get_command_id(self.bot, 'stats')}> - View general DropTracker statistics, or search for a player/clan.\n" +
+                                   f"- </patreon:{await get_command_id(self.bot, 'patreon')}> - View the benefits of contributing to keeping the DropTracker online via Patreon.", inline=False)
         help_embed.add_field(name="Group Leader Commands:",
                              value="" +
-                                   "- `/group` - View relevant config options, member counts, etc.\n" +
-                                   "- `/group-config` - Begin configuring the DropTracker bot for use in a Discord server, with a step-by-step walkthrough.\n" +
-                                   "- `/members` - View a listing of the top members of your group in real-time.\n" +
-                                   "- `/req-refresh` - Request an instant refresh of the database for your group, if something appears missing", inline=False)
+                                   f"- </group:{await get_command_id(self.bot, 'group')}> - View relevant config options, member counts, etc.\n" +
+                                   f"- </group-config:{await get_command_id(self.bot, 'group-config')}> - Begin configuring the DropTracker bot for use in a Discord server, with a step-by-step walkthrough.\n" +
+                                   f"- </members:{await get_command_id(self.bot, 'members')}> - View a listing of the top members of your group in real-time.\n" +
+                                   f"- </group-refresh:{await get_command_id(self.bot, 'group-refresh')}> - Request an instant refresh of the database for your group, if something appears missing", inline=False)
         if ctx.guild and ctx.author and ctx.author.roles:
             if "1176291872143052831" in (str(role) for role in ctx.author.roles):
                 help_embed.add_field(name="`Administrative Commands`:",
@@ -49,6 +49,7 @@ class UserCommands(Extension):
                                            "- `/delete-drop` - Remove a drop from the database by providing its ID.\n" +
                                            "- `/user-info` - View information about a user such as their RSNs, discord affiliation, etc.\n" +
                                            "- `/restart` - Force a complete server restart.", inline=False)
+                
         help_embed.add_field(name="Helpful Links",
                              value="[Docs](https://www.droptracker.io/docs) | "+
                              "[Join our Discord](https://www.droptracker.io/discord) | " +
@@ -96,27 +97,63 @@ class UserCommands(Extension):
                   required=True)
     async def claim_rsn_command(self, ctx, rsn: str):
         user = session.query(User).filter_by(discord_id=str(ctx.user.id)).first()
+        group = None
         if not user:
             discord_id = ctx.user.id
             username = ctx.user.username
             user = db.create_user(str(discord_id), str(username))
+        if ctx.guild:
+            guild_id = ctx.guild.id
+            group = session.query(Group).filter(Group.guild_id.ilike(guild_id)).first()
         player = session.query(Player).filter(Player.player_name.ilike(rsn)).first()
         if not player:
-            wom_data = check_user_by_username(rsn)
+            try:
+                wom_data = await check_user_by_username(rsn)
+            except Exception as e:
+                print("Couldn't get player data. e:", e)
+                return await ctx.send(f"An error occurred claiming your account.\n" +
+                                      "Try again later, or reach out in our Discord server",
+                                      ephemeral=True)
             if wom_data:
                 player, player_name, player_id = wom_data
                 try:
-                    new_player = Player(player_id, rsn, str(user.id))
+                    if group:
+                        new_player = Player(wom_id=player_id, 
+                                            player_name=rsn, 
+                                            user_id=str(user.user_id), 
+                                            user=user, 
+                                            group=group)
+                    else:
+                        new_player = Player(wom_id=player_id, 
+                                            player_name=rsn, 
+                                            user_id=str(user.user_id), 
+                                            user=user)
                     session.add(new_player)
                     session.commit()
                 except Exception as e:
                     print(f"Could not create a new player:", e)
                     session.rollback()
+                finally:
+                    return await ctx.send(f"Your account ({player_name}), with ID `{player_id}` has " +
+                                         "been added to the database & associated with your Discord account.")
             else:
                 return await ctx.send(f"Your account was not found in the WiseOldMan database.\n" +
                                      f"You could try to manually update your account on their website by [clicking here](https://www.wiseoldman.net/players/{rsn}), then try again, or wait a bit.")
-            
-        return await ctx.send(f"This command will be added soon :)", ephemeral=True)
+        else:
+            joined_time = format_time_since_update(player.date_added)
+            if str(player.user.user_id) != str(ctx.user.id):
+                await ctx.send(f"Uh-oh!\n" +
+                               f"It looks like somebody else may have claimed your account {joined_time}!\n" +
+                               f"<@{player.user.discord_id}> (discord id: {player.user.discord_id}) currently owns it in our database.\n" + 
+                               "If this is some type of mistake, please reach out in our discord server:\n" + 
+                               "https://www.droptracker.io/discord",
+                               ephemeral=True)
+            else:
+                await ctx.send(f"You already claimed ", player_name, f"(WOM id: `{player.wom_id}`) {joined_time}\n" + 
+                               "\nSomething not seem right?\n" +
+                               "Please reach out in our discord server:\n" + 
+                               "https://www.droptracker.io/discord",
+                               ephemeral=True)
                       
     @slash_command(name="me",
                    description="View your DropTracker account / stats, or create an account if you don't already have one.")
@@ -151,6 +188,7 @@ class UserCommands(Extension):
                               url=f"https://www.droptracker.io/profile?discordId={str(ctx.user.id)}",
                               icon_url="https://www.droptracker.io/img/droptracker-small.gif")
         me_embed.set_thumbnail(url="https://www.droptracker.io/img/droptracker-small.gif")
+        await ctx.send(embed=me_embed, ephemeral=True)
         #me_embed.set_footer(text="View our documentation to learn more about how to interact with the Discord bot.")
         
 
@@ -171,6 +209,21 @@ class AdminCommands(Extension):
     @check(interactions.is_owner())
     async def visualize_db(self, ctx: SlashContext):
         pass
+
+    @slash_command()
+    @check(interactions.is_owner())
+    async def stress_test(self, ctx: SlashContext):
+        response = await ctx.send(f"Trying to find all drops in the database and perform sorting")
+        time_start = time.time()
+        try:
+            all_drops = await db.find_all_drops()
+        except Exception as e:
+            print("Exception:", e)
+        finally:
+            time_taken = time.time() - time_start
+        print("Done finding drops.")
+        return await response.edit(f"Found all drops. Length: {len(all_drops)}, \nTime taken: <t:{int(time_taken)}:R>\n", ephemeral=True)
+
 
 
 
