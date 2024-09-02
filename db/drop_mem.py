@@ -119,10 +119,5 @@ class DropManager:
                 )
         
         print("Player and group drops have been updated.")
-                    
-
-
-    def sort_all_drops(all_drops: List[Drop]):
-        """ Sorts drops and stores the resulting data in the database, updating any past entries"""
-        for drop in all_drops:
-            pass
+    
+    

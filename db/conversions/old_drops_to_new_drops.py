@@ -77,7 +77,7 @@ for drop_id, item_name, item_id, rsn, quantity, value, time_str, notified, image
         date_added=datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S') if time_str != '0000-00-00 00:00:00' else None,
         date_updated=datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S') if time_str != '0000-00-00 00:00:00' else None,
         npc_name=npc_name,
-        partition=ym_partition  # Or use appropriate partitioning logic
+        partition=ym_partition  
     )
     session.add(new_drop)
     print(f"Added drop {drop_id} for player {rsn}")
