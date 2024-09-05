@@ -29,8 +29,7 @@ user_group_association = Table(
 class Drop(Base):
     __tablename__ = 'drops'
     drop_id = Column(Integer, primary_key=True, autoincrement=True)
-    item_name = Column(String(35))
-    item_id = Column(Integer)
+    item_id = Column(Integer, ForeignKey('items.item_id'))
     player_id = Column(Integer, ForeignKey('players.player_id'), index=True)
     group_id = Column(Integer, ForeignKey('groups.group_id'), index=True, nullable=True)
     date_added = Column(DateTime, index=True)
@@ -42,6 +41,7 @@ class Drop(Base):
     
     player = relationship("Player", back_populates="drops")
     group = relationship("Group", back_populates="drops")
+    notified_drops = relationship("NotifiedDrop", back_populates="drops")
 
 class NotifiedDrop(Base):
     """
@@ -56,21 +56,21 @@ class NotifiedDrop(Base):
     status = Column(String(15)) ## 'sent', 'removed' or 'pending'
     drop_id = Column(Integer, ForeignKey('drops.drop_id'), nullable=False)
 
-    drop = relationship("Drop", back_populates="notified_drops")  
+    drops = relationship("Drop", back_populates="notified_drops")  
 
 class PlayerTotal(Base):
     """
         Contains players' calculated totals and the last time they were updated
     """
     __tablename__ = 'player_totals'
-    
+    entry_id = Column(Integer, autoincrement=True, primary_key=True)
     player_id = Column(Integer, ForeignKey('players.player_id'), nullable=False)
     npc_name = Column(String(35), ForeignKey('npc_list.npc_name'), nullable=False)
     total_loot = Column(String(50), nullable=False, default=0)
     last_updated = Column(DateTime, onupdate=func.now())
     
     player = relationship("Player", back_populates="player_totals")
-    npc = relationship("NpcList", back_populates="player_totals")
+    npc = relationship("NpcList")
 
 class NpcList(Base):
     """
@@ -80,6 +80,11 @@ class NpcList(Base):
     __tablename__ = 'npc_list'
     npc_name = Column(String(35), primary_key=True, nullable=False)
 
+class ItemList(Base):
+    __tablename__ = 'items'
+    item_id = Column(Integer, primary_key=True,nullable=False)
+    item_name = Column(String(125), index=True)
+    noted = Column(Boolean, nullable=False)
 
 class CollectionLogEntry(Base):
     """ 
@@ -143,6 +148,7 @@ class Player(Base):
     user = relationship("User", back_populates="players")
     drops = relationship("Drop", back_populates="player")
     groups = relationship("Group", secondary=user_group_association, back_populates="players")
+    player_totals = relationship("PlayerTotal", back_populates="player")
 
     def __init__(self, wom_id, player_name, user_id=None, user=None, log_slots=0, total_level=0):
         self.wom_id = wom_id

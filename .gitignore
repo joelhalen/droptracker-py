@@ -18,3 +18,4 @@ alembic/versions/*
 # General project excludes
 *.cpython*
 *.mako
+data/items.json
