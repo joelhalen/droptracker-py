@@ -43,6 +43,44 @@ class Drop(Base):
     player = relationship("Player", back_populates="drops")
     group = relationship("Group", back_populates="drops")
 
+class NotifiedDrop(Base):
+    """
+        Drops that have exceeded the necessary threshold to have a notification
+        sent to a Discord channel are stored in this table to allow modifications
+        to be made to the message, drop, etc.
+    """
+    __tablename__ = 'notified_drops'
+    notified_drop_id = Column(Integer, primary_key=True, autoincrement=True)
+    channel_id = Column(String(35))
+    message_id = Column(String(35))
+    status = Column(String(15)) ## 'sent', 'removed' or 'pending'
+    drop_id = Column(Integer, ForeignKey('drops.drop_id'), nullable=False)
+
+    drop = relationship("Drop", back_populates="notified_drops")  
+
+class PlayerTotal(Base):
+    """
+        Contains players' calculated totals and the last time they were updated
+    """
+    __tablename__ = 'player_totals'
+    
+    player_id = Column(Integer, ForeignKey('players.player_id'), nullable=False)
+    npc_name = Column(String(35), ForeignKey('npc_list.npc_name'), nullable=False)
+    total_loot = Column(String(50), nullable=False, default=0)
+    last_updated = Column(DateTime, onupdate=func.now())
+    
+    player = relationship("Player", back_populates="player_totals")
+    npc = relationship("NpcList", back_populates="player_totals")
+
+class NpcList(Base):
+    """
+        Stores the list of valid NPCs that are 
+        being tracked individually for ranking purposes
+    """
+    __tablename__ = 'npc_list'
+    npc_name = Column(String(35), primary_key=True, nullable=False)
+
+
 class CollectionLogEntry(Base):
     """ 
         Example of another data type we will store in the sql database
@@ -93,7 +131,7 @@ class Player(Base):
         submits a new drop/etc, and their WiseOldMan user ID doesn't already exist in our database.
     """
     __tablename__ = 'players'
-    player_id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     wom_id = Column(Integer, unique=True)
     player_name = Column(String(20), index=True)
     user_id = Column(Integer, ForeignKey('users.user_id'))

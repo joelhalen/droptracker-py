@@ -1,9 +1,11 @@
 from db.models import User, Group, Guild, Player, Drop, session
 from dotenv import load_dotenv
+from sqlalchemy.dialects import mysql
 import os
 import asyncio
 from datetime import datetime
 from utils.redis import RedisClient
+import pymysql
 
 load_dotenv()
 
@@ -95,25 +97,51 @@ class DatabaseOperations:
         
     async def find_all_drops(self):
         """ 
-            Used for the global server's lootboard generation & only does this month's partition
+            Used for the global server's lootboard generation & 
+            only does this month's partition
         """
         partition = datetime.now().year * 100 + (datetime.now().month - 1)
-        all_drops = session.query(Drop.item_name, 
-                                    Drop.item_id, 
-                                    Drop.player,
-                                    Drop.value,
-                                    Drop.quantity,
-                                    Drop.date_added,
-                                    Drop.group_id
-                                    ).filter(
+        """ 
+            Used for the global server's lootboard generation & 
+            only does this month's partition
+        """
+        #partition = datetime.now().year * 100 + (datetime.now().month - 1)
+    
+        query = session.query(
+            Drop.item_name, 
+            Drop.item_id, 
+            Drop.player,
+            Drop.value,
+            Drop.quantity,
+            Drop.date_added,
+            Drop.group_id
+        ).filter(
             Drop.partition == partition
         ).join(
             Player, Drop.player_id == Player.player_id
-        ).all()
+        )
+        
+        # Compile the query to a string with parameters bound
+        sql_query = query.statement.compile(dialect=mysql.dialect())
+        
+        print(sql_query)
+    # return sql_query
+        # all_drops = session.query(Drop.item_name, 
+        #                             Drop.item_id, 
+        #                             Drop.player,
+        #                             Drop.value,
+        #                             Drop.quantity,
+        #                             Drop.date_added,
+        #                             Drop.group_id
+        #                             ).filter(
+        #     Drop.partition == partition
+        # ).join(
+        #     Player, Drop.player_id == Player.player_id
+        # ).all()
         
         
-        print("All drops:", all_drops)
-        return all_drops
+        #print("All drops:", all_drops)
+        #return all_drops
 
     async def find_drops_for_group(self,
                                    group_id: int = None, 
