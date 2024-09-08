@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, not_
 from sqlalchemy.orm import sessionmaker
 import sys
 import os
@@ -13,8 +13,12 @@ engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASS}@localhost:3306/data
 Session = sessionmaker(bind=engine)
 session = Session()
 
-# Step 2: Fetch all Drops and update their item_id based on item_name
-drops = session.query(Drop).all()
+# Step 2: Fetch all item_ids from the ItemList table
+item_ids = session.query(ItemList.item_id).all()
+item_ids = [item_id[0] for item_id in item_ids]  # Flatten the list of tuples
+
+# Step 3: Fetch all Drops where item_id is not in the list of existing item_ids
+drops = session.query(Drop).filter(not_(Drop.item_id.in_(item_ids))).all()
 
 for drop in drops:
     # Unescape apostrophes before querying
@@ -26,8 +30,10 @@ for drop in drops:
     if item:
         drop.item_id = item.item_id  # Assign the foreign key based on item_name
     else:
+        new_item = ItemList(item_id=drop.item_id, item_name=drop.item_name, noted=False)
         print(f"Warning: No matching item found for item_name {drop.item_name}")
-
+        print(f"Created a new entry with item ID #", drop.item_id)
+        session.add(new_item)
 try:
     session.commit()  # Commit the changes
     print("Data migration completed successfully.")

@@ -16,8 +16,16 @@ def format_time_since_update(datetime_object):
     # Format the timestamp for Discord
     return f"<t:{unix_timestamp}:R>"
 
-def format_number(): ## return a human readable format, like 106.56K, etc
-    pass
+def format_number(number):
+    number = int(float(number))
+    if number >= 1_000_000_000:
+        return f"{number / 1_000_000_000:.3f}B"
+    elif number >= 1_000_000:
+        return f"{number / 1_000_000:.2f}M"
+    elif number >= 1_000:
+        return f"{number / 1_000:.2f}K"
+    else:
+        return f"{number:,}"
 
 
 def get_current_partition() -> int:
@@ -52,3 +60,9 @@ async def get_command_id(bot: interactions.Client, command_name: str):
     except Exception as e:
         print("Couldn't retrieve the ID for the command")
         print("Exception:", e)
+
+
+def get_extension_from_content_type(content_type):
+    if content_type and '/' in content_type:
+        return content_type.split('/')[-1]
+    return 'jpg'  # Default to jpg if content type is not provided

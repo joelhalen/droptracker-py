@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 import re
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
@@ -8,7 +7,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from db.models import Player, Drop, Base  # Import Base using an absolute path
+from db.models import Player, Drop, Base, NpcList  # Import Base using an absolute path
 
 # Step 1: Read and Parse the SQL File
 sql_file_path = '/store/tempdb/dttransfer.sql'
@@ -17,7 +16,6 @@ with open(sql_file_path, 'r') as file:
     sql_content = file.read()
 
 # Extracting INSERT data from the SQL file using regex
-# Adjusted regex to match multi-line INSERT statements
 insert_data_pattern = re.compile(r"INSERT INTO `drops` \(.*?\) VALUES\s*(.+?);", re.DOTALL)
 matches = insert_data_pattern.findall(sql_content)
 
@@ -25,7 +23,6 @@ drops_data = []
 
 # Parse the matched INSERT statements to extract tuples of data
 for match in matches:
-    # Extract individual tuples
     data_tuples = re.findall(r"\((.*?)\)", match, re.DOTALL)
     for data_tuple in data_tuples:
         # Split by comma, but only outside of parenthesis to handle commas inside values
@@ -44,13 +41,13 @@ session = Session()
 
 # Step 3: Create a Cache for Player IDs
 player_cache = {}
-
+npc_ids = {}
 # Optional: Preload Cache with Existing Players (for large datasets)
 players = session.query(Player).all()
 for player in players:
     player_cache[player.player_name.lower()] = player.player_id
 
-# Step 4: Process and Insert Drops
+# Step 4: Insert Drops with Valid Player IDs
 for drop_id, item_name, item_id, rsn, quantity, value, time_str, notified, image_url, npc_name, ym_partition in drops_data:
     # Check the cache for the player_id
     player_id = player_cache.get(rsn.lower())
@@ -62,25 +59,34 @@ for drop_id, item_name, item_id, rsn, quantity, value, time_str, notified, image
             # Store in cache for future use
             player_cache[rsn.lower()] = player_id
         else:
-            # If player not found, handle the case (e.g., log, skip, or create new player)
-            print(f"Player {rsn} not found, skipping drop {drop_id}")
+            # If player not found, handle the case (log and skip)
+            print(f"Player '{rsn}' not found, skipping drop {drop_id}. drop_data:", drop_id, item_name, item_id, rsn)
+            continue  # Skip this drop since player_id is required
+
+    # Normalize the npc_name and check if it's cached
+    normalized_name = npc_name.replace("\\'", "'")
+    if normalized_name not in npc_ids:
+        npc = session.query(NpcList).filter(NpcList.npc_name == normalized_name).first()
+        if not npc:
+            print(f"Skipped drop with ID {drop_id} because there was no matching NPC: '{npc_name}'")
             continue
+        npc_ids[normalized_name] = npc.npc_id
 
     # Create a new Drop object and add it to the session
     new_drop = Drop(
         drop_id=drop_id,
-        item_name=item_name,
         item_id=item_id,
-        player_id=player_id,
+        player_id=player_id,  # This will always be valid since we skip if not found
         quantity=quantity,
         value=value,
         date_added=datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S') if time_str != '0000-00-00 00:00:00' else None,
         date_updated=datetime.strptime(time_str, '%Y-%m-%d %H:%M:%S') if time_str != '0000-00-00 00:00:00' else None,
-        npc_name=npc_name,
-        partition=ym_partition  
+        npc_id=npc_ids[normalized_name],
+        partition=ym_partition
     )
     session.add(new_drop)
-    print(f"Added drop {drop_id} for player {rsn}")
+    print(player_id, rsn, "added")
+    # print(f"Added drop {drop_id} for player '{rsn}'.")
 
 # Step 5: Commit the Session
 try:

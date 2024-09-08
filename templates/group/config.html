@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Clan Configuration</h1>
+
+<form method="POST" action="/save_config">
+    <!-- Authorized Roles -->
+    <div class="form-group">
+        <label for="authed_roles">Authorized Roles:</label>
+        <input type="text" id="authed_roles" name="authed_roles" value="{{ config.authed_roles }}">
+    </div>
+
+    <!-- Lootboard Settings -->
+    <h3>Lootboard Settings</h3>
+    <div class="form-group">
+        <label for="lootboard_message_id">Lootboard Message ID:</label>
+        <input type="text" id="lootboard_message_id" name="lootboard_message_id" value="{{ config.lootboard_message_id }}">
+    </div>
+
+    <div class="form-group">
+        <label for="lootboard_channel_id">Lootboard Channel:</label>
+        <select id="lootboard_channel_id" name="lootboard_channel_id">
+            <option value="">-- Select Channel --</option>
+            {% for channel in channel_list %}
+            {% if channel.type == 'text' %}
+            <option value="{{ channel.id }}" {% if config.lootboard_channel_id == channel.id %}selected{% endif %}>{{ channel.name }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Channels to Post Settings -->
+    <h3>Channels to Post</h3>
+    <div class="form-group">
+        <label for="channel_id_to_post_loot">Channel to Post Loot:</label>
+        <select id="channel_id_to_post_loot" name="channel_id_to_post_loot">
+            <option value="">-- Select Channel --</option>
+            {% for channel in channel_list %}
+            {% if channel.type == 'text' %}
+            <option value="{{ channel.id }}" {% if config.channel_id_to_post_loot == channel.id %}selected{% endif %}>{{ channel.name }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="channel_id_to_post_clog">Channel to Post Clog:</label>
+        <select id="channel_id_to_post_clog" name="channel_id_to_post_clog">
+            <option value="">-- Select Channel --</option>
+            {% for channel in channel_list %}
+            {% if channel.type == 'text' %}
+            <option value="{{ channel.id }}" {% if config.channel_id_to_post_clog == channel.id %}selected{% endif %}>{{ channel.name }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Other Settings -->
+    <div class="form-group">
+        <label for="only_send_messages_with_images">Only Send Messages With Images:</label>
+        <input type="checkbox" id="only_send_messages_with_images" name="only_send_messages_with_images" {% if config.only_send_messages_with_images %}checked{% endif %}>
+    </div>
+
+    <div class="form-group">
+        <label for="loot_board_type">Loot Board Type:</label>
+        <input type="text" id="loot_board_type" name="loot_board_type" value="{{ config.loot_board_type }}">
+    </div>
+
+    <div class="form-group">
+        <label for="minimum_value_to_notify">Minimum Value to Notify:</label>
+        <input type="number" id="minimum_value_to_notify" name="minimum_value_to_notify" value="{{ config.minimum_value_to_notify }}">
+    </div>
+
+    <!-- Voice Channels Settings -->
+    <h3>Voice Channels</h3>
+    <div class="form-group">
+        <label for="vc_to_display_monthly_loot">VC to Display Monthly Loot:</label>
+        <select id="vc_to_display_monthly_loot" name="vc_to_display_monthly_loot">
+            <option value="">-- Select Channel --</option>
+            {% for channel in channel_list %}
+            {% if channel.type == 'voice' %}
+            <option value="{{ channel.id }}" {% if config.vc_to_display_monthly_loot == channel.id %}selected{% endif %}>{{ channel.name }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="vc_to_display_wom_members">VC to Display WOM Members:</label>
+        <select id="vc_to_display_wom_members" name="vc_to_display_wom_members">
+            <option value="">-- Select Channel --</option>
+            {% for channel in channel_list %}
+            {% if channel.type == 'voice' %}
+            <option value="{{ channel.id }}" {% if config.vc_to_display_wom_members == channel.id %}selected{% endif %}>{{ channel.name }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Notifications -->
+    <h3>Notifications</h3>
+    <div class="form-group">
+        <label for="notify_clogs">Notify Clogs:</label>
+        <input type="checkbox" id="notify_clogs" name="notify_clogs" {% if config.notify_clogs %}checked{% endif %}>
+    </div>
+
+    <div class="form-group">
+        <label for="notify_cas">Notify CAs:</label>
+        <input type="checkbox" id="notify_cas" name="notify_cas" {% if config.notify_cas %}checked{% endif %}>
+    </div>
+
+    <div class="form-group">
+        <label for="notify_pbs">Notify PBs:</label>
+        <input type="checkbox" id="notify_pbs" name="notify_pbs" {% if config.notify_pbs %}checked{% endif %}>
+    </div>
+
+    <!-- Other Links -->
+    <h3>Other Links</h3>
+    <div class="form-group">
+        <label for="spreadsheet_url">Spreadsheet URL:</label>
+        <input type="url" id="spreadsheet_url" name="spreadsheet_url" value="{{ config.spreadsheet_url }}">
+    </div>
+
+    <div class="form-group">
+        <label for="clan_chat_name">Clan Chat Name:</label>
+        <input type="text" id="clan_chat_name" name="clan_chat_name" value="{{ config.clan_chat_name }}">
+    </div>
+
+    <div class="form-group">
+        <label for="discord_invite_link">Discord Invite Link:</label>
+        <input type="url" id="discord_invite_link" name="discord_invite_link" value="{{ config.discord_invite_link }}">
+    </div>
+
+    <!-- Patreon Integration -->
+    <div class="form-group">
+        {% if not config.patreon %}
+        <button type="button" onclick="window.location.href='https://patreon.com/link_here';">Link Patreon</button>
+        {% else %}
+        <label for="patreon">Patreon:</label>
+        <input type="text" id="patreon" name="patreon" value="{{ config.patreon }}" readonly>
+        {% endif %}
+    </div>
+
+    <button type="submit">Save Configuration</button>
+</form>
+
+<style>
+    .form-group {
+        margin-bottom: 1.5em;
+    }
+    h3 {
+        margin-top: 2em;
+        font-size: 1.2em;
+        color: #333;
+    }
+</style>
+{% endblock %}

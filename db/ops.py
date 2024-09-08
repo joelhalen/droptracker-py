@@ -1,4 +1,4 @@
-from db.models import User, Group, Guild, Player, Drop, session
+from db.models import User, Group, Guild, Player, Drop, session, ItemList
 from dotenv import load_dotenv
 from sqlalchemy.dialects import mysql
 import os
@@ -9,7 +9,7 @@ import pymysql
 
 load_dotenv()
 
-insertion = asyncio.Lock()
+insertion_lock = asyncio.Lock()
 
 MAX_DROP_QUEUE_LENGTH = os.getenv("QUEUE_LENGTH")
 
@@ -22,34 +22,49 @@ class DatabaseOperations:
 
     async def add_drop_to_queue(self, drop_data: Drop):
         self.drop_queue.append(drop_data)
-        if (len(self.drop_queue) > MAX_DROP_QUEUE_LENGTH):
+        if (len(self.drop_queue) > int(MAX_DROP_QUEUE_LENGTH)):
             await self.insert_drops()
         
     async def insert_drops(self):
-        async with insertion.Lock():
+        async with insertion_lock:
             length = len(self.drop_queue)
             for drop in self.drop_queue:
                 try:
                     session.add(drop)
                 except Exception as e:
                     print("Couldn't add a drop to the insertion list:", e)
+                    session.rollback()
                 finally:
                     session.commit()
                     session.close()
                     self.drop_queue = []
         print("Inserted", length, "drops")
         
-    def create_drop_object(self, item_name, item_id, player_id, date_received, value, quantity, add_to_queue: bool = True):
-        """ Create a drop and add it to the queue for inserting to the database """
-        newdrop = Drop(item_name = item_name,
-                    item_id = item_id,
+    async def create_drop_object(self, item_id, player_id, date_received, npc_id, value, quantity, add_to_queue: bool = True):
+        """ :param: item_id: The item id that was received
+            :param: player_id: The player's ID who received the drop
+            :param: date_received: The current time / or when the drop was supposed to be inserted
+            :param: npc_id: The ID of the NPC the drop was received from (based on our database of npc ids)
+            :param: value: The item's GE value
+            :param: quantity: How many of the item were received
+            :param: add_to_queue: SETTING FALSE IGNORES ADDING THE DROP TO THE DATABASE...
+            Create a drop and add it to the queue for inserting to the database """
+        if isinstance(date_received, datetime):
+            # Convert to string in the required format without timezone and microseconds
+            date_received_str = date_received.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            date_received_str = date_received  # Assuming it's already a string in the correct format
+
+
+        newdrop = Drop(item_id = item_id,
                     player_id = player_id,
-                    date_received = date_received,
-                    date_updated = date_received,
+                    date_added = date_received_str,
+                    date_updated = date_received_str,
+                    npc_id = npc_id,
                     value = value,
                     quantity = quantity)
         if add_to_queue:
-            self.add_drop_to_queue(newdrop)
+            await self.add_drop_to_queue(newdrop)
 
     async def create_user(self, discord_id: str, username: str, ctx = None):
         """ 
@@ -95,6 +110,44 @@ class DatabaseOperations:
         finally:
             return True
         
+
+    
+        
+    async def lootboard_drops(self):
+        partition = datetime.now().year * 100 + (datetime.now().month)
+        query = session.query(
+            Drop.item_id, 
+            Drop.player,
+            Drop.value,
+            Drop.quantity,
+            Drop.date_added,
+        ).filter(
+            Drop.partition == partition
+        ).join(
+            Player, Drop.player_id == Player.player_id
+        )
+        print("Partition", partition)
+        
+        # Compile the query to a string with parameters bound
+        sql_query = query.statement.compile(dialect=mysql.dialect())
+        
+        print(sql_query)
+        all_drops = session.query(Drop.item_id, 
+                                    Drop.player_id,
+                                    Drop.value,
+                                    Drop.quantity,
+                                    Drop.date_added
+                                    ).filter(
+            Drop.partition == partition
+        ).join(
+            Player, Drop.player_id == Player.player_id
+        ).all()
+        
+        
+        # print("All drops:", all_drops)
+        return all_drops
+    # return sql_query
+        
     async def find_all_drops(self):
         """ 
             Used for the global server's lootboard generation & 
@@ -108,13 +161,11 @@ class DatabaseOperations:
         #partition = datetime.now().year * 100 + (datetime.now().month - 1)
     
         query = session.query(
-            Drop.item_name, 
             Drop.item_id, 
             Drop.player,
             Drop.value,
             Drop.quantity,
             Drop.date_added,
-            Drop.group_id
         ).filter(
             Drop.partition == partition
         ).join(

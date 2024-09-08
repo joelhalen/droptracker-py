@@ -2,7 +2,7 @@ import pymysql
 pymysql.install_as_MySQLdb()
 
 from sqlalchemy import create_engine, Column, Table, Integer, Boolean, String, ForeignKey, DateTime, Float
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship, scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import func
 from utils.format import get_current_partition
@@ -29,19 +29,17 @@ user_group_association = Table(
 class Drop(Base):
     __tablename__ = 'drops'
     drop_id = Column(Integer, primary_key=True, autoincrement=True)
-    item_id = Column(Integer, ForeignKey('items.item_id'))
-    player_id = Column(Integer, ForeignKey('players.player_id'), index=True)
-    group_id = Column(Integer, ForeignKey('groups.group_id'), index=True, nullable=True)
+    item_id = Column(Integer, ForeignKey('items.item_id'), index=True)
+    player_id = Column(Integer, ForeignKey('players.player_id'), index=True, nullable=False)
     date_added = Column(DateTime, index=True)
-    npc_name = Column(String(35), index=True)
+    npc_id = Column(Integer, ForeignKey('npc_list.npc_id'), index=True)
     date_updated = Column(DateTime, onupdate=func.now())
     value = Column(Integer)
     quantity = Column(Integer)
     partition = Column(Integer, default=get_current_partition, index=True)
     
     player = relationship("Player", back_populates="drops")
-    group = relationship("Group", back_populates="drops")
-    notified_drops = relationship("NotifiedDrop", back_populates="drops")
+    notified_drops = relationship("NotifiedDrop", back_populates="drop")
 
 class NotifiedDrop(Base):
     """
@@ -56,7 +54,7 @@ class NotifiedDrop(Base):
     status = Column(String(15)) ## 'sent', 'removed' or 'pending'
     drop_id = Column(Integer, ForeignKey('drops.drop_id'), nullable=False)
 
-    drops = relationship("Drop", back_populates="notified_drops")  
+    drop = relationship("Drop", back_populates="notified_drops")
 
 class PlayerTotal(Base):
     """
@@ -78,11 +76,12 @@ class NpcList(Base):
         being tracked individually for ranking purposes
     """
     __tablename__ = 'npc_list'
-    npc_name = Column(String(35), primary_key=True, nullable=False)
+    npc_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    npc_name = Column(String(60), nullable=False)
 
 class ItemList(Base):
     __tablename__ = 'items'
-    item_id = Column(Integer, primary_key=True,nullable=False)
+    item_id = Column(Integer, primary_key=True,nullable=False, index=True)
     item_name = Column(String(125), index=True)
     noted = Column(Boolean, nullable=False)
 
@@ -99,32 +98,7 @@ class CollectionLogEntry(Base):
     reported_slots = Column(Integer)
     date_added = Column(DateTime, index=True)
     date_updated = Column(DateTime, onupdate=func.now())
-"""
-    Redis defs:
-    -- Note: Stored without the {} brackets, ofc.
-    - Player drop keys:
-        Monthly:
-            All:
-                pid_drops_mo_{pid}_all_{partition}
-            Specific NPC:
-                pid_drops_mo_{pid}_{npc_name}_{partition}
-        All-time (patreon):
-            All:
-                pid_drops_at_{pid}_all
-            Specific NPC:
-                pid_drops_at_{pid}_{npc_name}
-    - Group drop keys:
-        Monthly:
-            All:
-                gid_drops_mo_{gid}_all_{partition}
-            Specific NPC:
-                gid_drops_mo_{gid}_{npc_name}_{partition}
-        All-time (patreon):
-            All:
-                gid_drops_at_{pid}_all
-            Specific NPC:
-                gid_drops_at_{pid}_{npc_name}
-"""
+
 class Player(Base):
     """ 
     :param: wom_id: The player's WiseOldMan ID
@@ -159,9 +133,14 @@ class Player(Base):
         self.total_level = total_level
 
 class User(Base):
+    """
+        :param: discord_id: The string formatted representation of the user's Discord ID
+        :param: username: The user's Discord display name
+        :param: patreon: The patreon subscription status of the user
+    """
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    discord_id = Column(String(25))
+    discord_id = Column(String(35))
     date_added = Column(DateTime)
     date_updated = Column(DateTime, onupdate=func.now())
     username = Column(String(20))
@@ -171,16 +150,20 @@ class User(Base):
 
 
 class Group(Base):
+    """
+    :param: group_name: Publicly-displayed name of the group
+    :param: wom_id: WiseOldMan group ID associated with the Group
+    :param: guild_id: Discord Guild ID, if one is associated with it"""
     __tablename__ = 'groups'
     group_id = Column(Integer, primary_key=True, autoincrement=True)
     group_name = Column(String(30), index=True)
     date_added = Column(DateTime)
     date_updated = Column(DateTime, onupdate=func.now())
     wom_id = Column(Integer, default=None)
-    guild_id = Column(Integer, default=None, nullable=True)
+    guild_id = Column(String(255), default=None, nullable=True)
     
     configurations = relationship("GroupConfiguration", back_populates="group")
-    drops = relationship("Drop", back_populates="group")
+    # drops = relationship("Drop", back_populates="group")
     players = relationship("Player", secondary=user_group_association, back_populates="groups", overlaps="groups")
     users = relationship("User", secondary=user_group_association, back_populates="groups", overlaps="groups,players")
 
@@ -189,7 +172,7 @@ class GroupConfiguration(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(Integer, ForeignKey('groups.group_id'), nullable=False)
-    config_key = Column(String(20), nullable=False)
+    config_key = Column(String(60), nullable=False)
     config_value = Column(String(255), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
@@ -197,17 +180,30 @@ class GroupConfiguration(Base):
 
 class Guild(Base):
     """ 
+    :param: guild_id: Discord guild_id, string-formatted.
+    :param: group_id: Respective group_id, if one already exists
+    :param: date_added: Time the guild was generated
+    :param: initialized: Status of the guild's registration (do they have a Group associated?)
         Guilds are stored in the database on the bot's invitiation to the server.
         They are used relationally to help convert a group to a discord guild. 
     """
     __tablename__ = 'guilds'
-    guild_id = Column(String(30), primary_key=True)
+    guild_id = Column(String(255), primary_key=True)
+    group_id = Column(Integer, ForeignKey('groups.group_id'), nullable=True)
     date_added = Column(DateTime)
     date_updated = Column(DateTime, onupdate=func.now())
     initialized = Column(Boolean, default=False)
 
+class Webhook(Base):
+    __tablename__ = 'webhooks'
+    webhook_id = Column(Integer, primary_key=True)
+    webhook_url = Column(String(255), unique=True)
+    date_added = Column(DateTime)
+    date_updated = Column(DateTime, onupdate=func.now())
+
+
 # Setup database connection and create tables
-engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASS}@localhost:3306/data')  
+engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASS}@localhost:3306/data', pool_size=20, max_overflow=10)
 Base.metadata.create_all(engine)
-Session = sessionmaker(bind=engine)
+Session = scoped_session(sessionmaker(bind=engine))
 session = Session()
