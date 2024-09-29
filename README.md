@@ -5,7 +5,6 @@ Greetings! Thanks for visiting our GitHub page. The DropTracker is an all-in-one
 
 This repository contains all of the necessary code to operate the Discord bot portion of the app. You can find the other bits here:
 [RuneLite Plugin](https://www.github.com/joelhalen/droptracker-plugin)
-[API] (coming soon)
 
 # Contributing
 
